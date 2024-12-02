@@ -1,0 +1,21 @@
+services:
+  m-banking-db:
+    image: postgres:16.3-bullseye
+    container_name: java-db
+    ports:
+      - 1234:5432
+    environment:
+      POSTGRES_PASSWORD: java@2024
+      POSTGRES_USER: java
+      POSTGRES_DB: java_project
+    volumes:
+      - java_final:/var/lib/postgresql/data
+    networks:
+      - java_final
+
+volumes:
+  java_final:
+
+networks:
+  java_final:
+
