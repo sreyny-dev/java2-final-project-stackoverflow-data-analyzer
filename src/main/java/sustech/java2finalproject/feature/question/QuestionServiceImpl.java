@@ -23,7 +23,7 @@ public class QuestionServiceImpl implements QuestionService {
         List<TopNResponse> topNResponses = new ArrayList<>();
 
         // Iterate through the results and map them to TopNResponse
-        for (int i = 0; i < Math.min(topN, topNResults.size()); i++) {
+        for (int i = 1; i < Math.min(topN, topNResults.size())+1; i++) {
             Object[] result = topNResults.get(i);  // Get the i-th result
             Tag tag = (Tag) result[0];  // Tag
             Long frequency = (Long) result[1];  // Frequency of questions

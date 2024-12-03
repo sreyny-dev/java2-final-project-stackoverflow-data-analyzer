@@ -1,6 +1,7 @@
 package sustech.java2finalproject.init;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
@@ -24,16 +25,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @Component
+@RequiredArgsConstructor
 public class DataInit {
 
-    @Autowired
-    private OwnerRepository ownerRepository;
-
-    @Autowired
-    private QuestionRepository questionRepository;
-
-    @Autowired
-    private TagRepository tagRepository;
+    private final OwnerRepository ownerRepository;
+    private final QuestionRepository questionRepository;
+    private final TagRepository tagRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
