@@ -1,8 +1,12 @@
 package sustech.java2finalproject.feature.question;
 
-import org.springframework.stereotype.Service;
+import sustech.java2finalproject.feature.question.dto.TopNResponse;
 
-@Service
+import java.util.List;
+
+
 public interface QuestionService {
+
+    List<TopNResponse> getTopNQuestionsByTag(int topN);
 
 }

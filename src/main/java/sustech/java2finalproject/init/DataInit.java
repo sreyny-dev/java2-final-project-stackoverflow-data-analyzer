@@ -1,16 +1,15 @@
 package sustech.java2finalproject.init;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import sustech.java2finalproject.domain.Owner;
 import sustech.java2finalproject.domain.Question;
 import sustech.java2finalproject.domain.Tag;
-import sustech.java2finalproject.feature.question.OwnerRepository;
-import sustech.java2finalproject.feature.question.QuestionRepository;
-import sustech.java2finalproject.feature.question.TagRepository;
+import sustech.java2finalproject.feature.question.repository.OwnerRepository;
+import sustech.java2finalproject.feature.question.repository.QuestionRepository;
+import sustech.java2finalproject.feature.question.repository.TagRepository;
 
 
 import java.time.Instant;
@@ -41,7 +40,7 @@ public class DataInit {
 
     private static final Logger logger = LoggerFactory.getLogger(DataInit.class);
 
-    @PostConstruct
+//    @PostConstruct
     public void init() {
         logger.info("Starting to fetch data from Stack Overflow API...");
 
