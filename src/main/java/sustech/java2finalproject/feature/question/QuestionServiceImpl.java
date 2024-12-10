@@ -196,7 +196,7 @@ public class QuestionServiceImpl implements QuestionService {
         if (text != null) {
             Matcher matcher = pattern.matcher(text);
             while (matcher.find()) {
-                String matchedException = matcher.group().toLowerCase(); // Normalize to lowercase
+                String matchedException = matcher.group(); // Use the matched exception as it is
                 exceptionCountMap.put(matchedException, exceptionCountMap.getOrDefault(matchedException, 0) + 1);
             }
         }
