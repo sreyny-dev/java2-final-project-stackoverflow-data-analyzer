@@ -13,4 +13,5 @@ public interface TagRepository extends JpaRepository<Tag, Integer> {
 
     @Query("SELECT t, COUNT(q) FROM Tag t JOIN t.questions q GROUP BY t ORDER BY COUNT(q) DESC")
     List<Object[]> findTopNTags(int topN);
+
 }

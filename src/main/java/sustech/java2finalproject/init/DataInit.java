@@ -1,16 +1,21 @@
 package sustech.java2finalproject.init;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import sustech.java2finalproject.domain.Answer;
 import sustech.java2finalproject.domain.Owner;
 import sustech.java2finalproject.domain.Question;
 import sustech.java2finalproject.domain.Tag;
+import sustech.java2finalproject.feature.question.repository.AnswerRepository;
 import sustech.java2finalproject.feature.question.repository.OwnerRepository;
 import sustech.java2finalproject.feature.question.repository.QuestionRepository;
 import sustech.java2finalproject.feature.question.repository.TagRepository;
+
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.http.HttpStatus;
 
 
 import java.time.Instant;
@@ -31,6 +36,7 @@ public class DataInit {
     private final OwnerRepository ownerRepository;
     private final QuestionRepository questionRepository;
     private final TagRepository tagRepository;
+    private final AnswerRepository answerRepository;
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -51,6 +57,7 @@ public class DataInit {
                 Owner owner = saveOwner(item.getOwner());
                 Question question = saveQuestion(item, owner);
                 saveTags(item.getTags(), question);
+                fetchAndSaveAnswers(question);
             } catch (Exception e) {
                 logger.error("Error processing question with ID: " + item.getQuestionId(), e);
             }
@@ -61,21 +68,31 @@ public class DataInit {
 
     private Owner saveOwner(StackExchangeResponse.Owner apiOwner) {
         // Check if owner exists, if not, save it
-        Owner owner = ownerRepository.findByAccountId(apiOwner.getAccountId());
+        Owner owner = null;
+
+        if (apiOwner.getAccountId() != null) {
+            owner = ownerRepository.findByAccountId(Math.toIntExact(apiOwner.getAccountId()));
+        }
+
         if (owner == null) {
             owner = new Owner();
             owner.setAccountId(apiOwner.getAccountId());
             owner.setReputation(apiOwner.getReputation());
-            owner.setUserId(apiOwner.getUserId());
-            owner.setUserType(apiOwner.getUserType());
-            owner.setAcceptRate(apiOwner.getAcceptRate());
-            owner.setProfileImage(apiOwner.getProfileImage());
+
+            // Check if userId is not null before parsing
+            if (apiOwner.getUserId() != null) {
+                owner.setUserId(Long.valueOf(apiOwner.getUserId()));
+            } else {
+                // Handle the case where userId is null, e.g., set a default value or skip saving
+                owner.setUserId(0L); // Set default value or handle accordingly
+            }
+
             owner.setDisplayName(apiOwner.getDisplayName());
-            owner.setLink(apiOwner.getLink());
             owner = ownerRepository.save(owner);
         }
         return owner;
     }
+
 
     private Question saveQuestion(StackExchangeResponse.QuestionItem item, Owner owner) {
         // Create and save the Question
@@ -84,12 +101,11 @@ public class DataInit {
         question.setViewCount(item.getViewCount());
         question.setAnswerCount(item.getAnswerCount());
         question.setScore(item.getScore());
-        question.setLastActivityDate(convertToLocalDateTime(item.getLastActivityDate()));
         question.setCreationDate(convertToLocalDateTime(item.getCreationDate()));
-        question.setQuestionId(item.getQuestionId());
-        question.setContentLicense(item.getContentLicense());
-        question.setLink(item.getLink());
+        question.setQuestionStackId(item.getQuestionId());
+
         question.setTitle(item.getTitle());
+        question.setBody(item.getBody());
         question.setOwner(owner);
 
 
@@ -97,24 +113,6 @@ public class DataInit {
             question.setAcceptedAnswerId(item.getAcceptedAnswerId());
         }
 
-        if(item.getClosedDate() != null){
-            question.setClosedDate(convertToLocalDateTime(item.getClosedDate()));
-        }
-        if(item.getClosedReason() != null){
-            question.setClosedReason(item.getClosedReason());
-        }
-
-        if(item.getCommunityOwnedDate() != null){
-            question.setCommunityOwnedDate(convertToLocalDateTime(item.getCommunityOwnedDate()));
-        }
-
-        if(item.getProtectedDate() != null){
-            question.setProtectedDate(convertToLocalDateTime(item.getProtectedDate()));
-        }
-
-        if(item.getLockedDate() != null){
-            question.setLockedDate(convertToLocalDateTime(item.getLockedDate()));
-        }
 
         return questionRepository.save(question);
     }
@@ -142,24 +140,100 @@ public class DataInit {
                 .toLocalDateTime();
     }
 
+
     private List<StackExchangeResponse.QuestionItem> fetchQuestions(int totalQuestions) {
         List<StackExchangeResponse.QuestionItem> allQuestions = new ArrayList<>();
         int totalPages = (totalQuestions + 99) / 100; // Calculate pages required
 
+        // The new URL you want to use
+        String baseUrl = "https://api.stackexchange.com/2.3/questions?order=desc&sort=activity&site=stackoverflow&filter=withbody&pagesize=100";
+
         for (int page = 1; page <= totalPages; page++) {
-            String url = String.format("https://api.stackexchange.com/2.3/questions?page=%d&pagesize=100&order=asc&sort=activity&tagged=java&site=stackoverflow", page);
+            // Append page number to the URL
+            String url = baseUrl + "&page=" + page;
             String response = restTemplate.getForObject(url, String.class);
+
             try {
                 StackExchangeResponse stackExchangeResponse = objectMapper.readValue(response, StackExchangeResponse.class);
                 allQuestions.addAll(stackExchangeResponse.getItems());
             } catch (Exception e) {
-                e.printStackTrace(); // You can log this for debugging
+                logger.error("Error fetching questions on page " + page, e);
             }
         }
+
         return allQuestions;
+    }
+
+    private void fetchAndSaveAnswers(Question question) {
+        String url = "https://api.stackexchange.com/2.3/questions/" + question.getQuestionStackId() + "/answers?order=desc&sort=activity&site=stackoverflow";
+        int retryCount = 0;
+        int maxRetries = 5;  // Maximum retry attempts
+        long backoffTime = 2000;  // Initial backoff time in milliseconds (2 seconds)
+
+        while (retryCount < maxRetries) {
+            try {
+                // Fetch the response from Stack Exchange API
+                String response = restTemplate.getForObject(url, String.class);
+
+                // Deserialize the response into Java objects
+                StackExchangeAnswersResponse stackExchangeAnswersResponse = objectMapper.readValue(response, StackExchangeAnswersResponse.class);
+
+                // Process each answer in the response
+                for (StackExchangeAnswersResponse.AnswerItem answerItem : stackExchangeAnswersResponse.getItems()) {
+                    // Extract the owner's reputation from the answer response
+                    Long ownerReputation = answerItem.getOwner().getReputation();
+
+                    // Create and populate the Answer object
+                    Answer answer = new Answer();
+                    answer.setAnswerId(answerItem.getAnswerId());
+                    answer.setScore(answerItem.getScore());
+                    answer.setIsAccepted(answerItem.getIsAccepted());
+                    answer.setCreatedDate(convertToLocalDateTime(answerItem.getCreationDate()));
+                    answer.setQuestionStackId(answerItem.getQuestionStackId());
+                    answer.setQuestion(question);
+                    answer.setOwnerReputation(ownerReputation);  // Set the reputation directly
+
+                    // Save the answer to the repository
+                    answerRepository.save(answer);
+                }
+
+                // If the request is successful, exit the loop
+                return;
+            } catch (HttpClientErrorException e) {
+                if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
+                    // Handle the 429 Too Many Requests error
+                    logger.warn("Too many requests, retrying... (Attempt " + (retryCount + 1) + ")");
+                    retryCount++;
+
+                    // Wait before retrying with exponential backoff
+                    try {
+                        Thread.sleep(backoffTime);
+                        backoffTime *= 2;  // Exponential backoff: double the wait time after each retry
+                    } catch (InterruptedException ex) {
+                        // Handle interruption during sleep
+                        Thread.currentThread().interrupt();
+                        break;  // Exit the loop if interrupted
+                    }
+                } else {
+                    // Handle other errors (e.g., 4xx, 5xx)
+                    logger.error("Error fetching answers for question ID: " + question.getQuestionStackId(), e);
+                    break;  // Exit the loop for other error types
+                }
+            } catch (Exception e) {
+                // Handle any other exceptions that may occur
+                logger.error("Unexpected error fetching answers for question ID: " + question.getQuestionStackId(), e);
+                break;
+            }
+        }
+
+        // If max retries are reached, log an error
+        if (retryCount >= maxRetries) {
+            logger.error("Max retry attempts reached for question ID: " + question.getQuestionStackId());
+        }
     }
 
 
 }
+
 
 

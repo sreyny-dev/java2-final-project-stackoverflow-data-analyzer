@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 @Setter
@@ -20,21 +21,15 @@ public class Question{
     private Integer id;
     private Boolean isAnswer;
     private Long viewCount;
-    private Integer acceptedAnswerId;
+    private Long acceptedAnswerId;
     private Long answerCount;
     private Long score;
-    private LocalDateTime lastActivityDate;
     private LocalDateTime creationDate;
-    private LocalDateTime closedDate;
-    private String closedReason;
-    private LocalDateTime protectedDate;
-    private LocalDateTime communityOwnedDate;
-    private Integer questionId;
-    private String contentLicense;
-    private String link;
+    private Long questionStackId;
     private String title;
+    @Column(columnDefinition = "TEXT")
+    private String body;
 
-    private LocalDateTime lockedDate;
 
     @ManyToOne
     private Owner owner;
@@ -43,5 +38,8 @@ public class Question{
     @JoinTable(joinColumns=@JoinColumn(name="question_id", referencedColumnName = "id"),
             inverseJoinColumns = @JoinColumn(name="tag_id", referencedColumnName = "id"))
     private Set<Tag> tags;
+
+    @OneToMany(mappedBy = "question")
+    private List<Answer> answerList;
 
 }

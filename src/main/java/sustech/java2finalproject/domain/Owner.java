@@ -15,14 +15,10 @@ public class Owner {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
-    private Integer accountId;
-    private Integer reputation;
-    private String userId;
-    private String userType;
-    private Integer acceptRate;
-    private String profileImage;
+    private Long accountId;
+    private Long reputation;
+    private Long userId;
     private String displayName;
-    private String link;
 
     @OneToMany(mappedBy = "owner")
     private List<Question> questions;

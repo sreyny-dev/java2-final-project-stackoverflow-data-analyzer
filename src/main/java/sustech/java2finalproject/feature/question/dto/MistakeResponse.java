@@ -1,7 +1,7 @@
 package sustech.java2finalproject.feature.question.dto;
 
-public record TopNResponse(
+public record MistakeResponse(
         String name,
-        Long frequency
+        Integer frequency
 ) {
 }

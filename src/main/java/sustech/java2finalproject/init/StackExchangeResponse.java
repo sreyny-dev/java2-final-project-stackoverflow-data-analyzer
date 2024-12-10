@@ -19,6 +19,7 @@ public class StackExchangeResponse {
     // Nested class to represent each question item
     @Getter
     @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class QuestionItem {
 
         // The owner of the question
@@ -35,46 +36,25 @@ public class StackExchangeResponse {
         private Long viewCount;
 
         @JsonProperty("accepted_answer_id")
-        private Integer acceptedAnswerId;
+        private Long acceptedAnswerId;
 
         @JsonProperty("answer_count")
         private Long answerCount;
 
-        @JsonProperty("closed_date")
-        private Long closedDate;
-
-        @JsonProperty("closed_reason")
-        private String closedReason;
-
         private Long score;
-
-        @JsonProperty("last_activity_date")
-        private Long lastActivityDate;
 
         @JsonProperty("creation_date")
         private Long creationDate;
 
         @JsonProperty("question_id")
-        private Integer questionId;
-
-        @JsonProperty("content_license")
-        private String contentLicense;
+        private Long questionId;
 
         private String link;
 
         private String title;
 
-        @JsonProperty("last_edit_date")
-        private Long lastEditDate;
-
-        @JsonProperty("protected_date")
-        private Long protectedDate;
-
-        @JsonProperty("community_owned_date")
-        private Long communityOwnedDate;
-
-        @JsonProperty("locked_date")
-        private Long lockedDate;
+        @JsonProperty("body")
+        private String body;
 
     }
 
@@ -84,9 +64,9 @@ public class StackExchangeResponse {
     public static class Owner {
 
         @JsonProperty("account_id")
-        private Integer accountId;
+        private Long accountId;
 
-        private Integer reputation;
+        private Long reputation;
 
         @JsonProperty("user_id")
         private String userId;

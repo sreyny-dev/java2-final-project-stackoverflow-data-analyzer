@@ -1,7 +1,20 @@
 services:
-  m-banking-db:
+#  stack-api:
+#    image: "stack-api"
+#    build: .
+#    container_name: stack-api
+#    ports:
+#      - 16800:8080
+#    volumes:
+#      - D:/SpringBootCourse/file-server/:/file-server/
+#    networks:
+#      - java_project
+#    depends_on:
+#      - stack-db
+
+  stack-db:
     image: postgres:16.3-bullseye
-    container_name: java-db
+    container_name: stack-db
     ports:
       - 1234:5432
     environment:
@@ -10,7 +23,12 @@ services:
       POSTGRES_DB: java_project
     volumes:
       - java_final:/var/lib/postgresql/data
+    networks:
+      - java_project
 
 volumes:
   java_final:
+
+networks:
+  java_project:
 
