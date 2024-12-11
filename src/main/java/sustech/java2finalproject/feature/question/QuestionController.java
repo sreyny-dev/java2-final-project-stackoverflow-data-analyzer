@@ -43,5 +43,11 @@ public class QuestionController {
         return questionService.ErrorAnalysis(topN);
     }
 
+    @GetMapping("/mistake-frequency/{mistake}")
+    @CrossOrigin
+    public MistakeResponse getExceptionFrequency(@PathVariable String mistake){
+        return questionService.getExceptionFrequency(mistake);
+    }
+
 
 }

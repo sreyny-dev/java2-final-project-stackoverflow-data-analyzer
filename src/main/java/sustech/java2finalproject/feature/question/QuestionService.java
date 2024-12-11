@@ -15,4 +15,5 @@ public interface QuestionService {
     List<TopEngagementResponse> getTopEngagementTagByTopUser(int topN, int reputation);
 
     List<MistakeResponse> ErrorAnalysis(Integer topN);
+    MistakeResponse getExceptionFrequency(String mistake);
 }

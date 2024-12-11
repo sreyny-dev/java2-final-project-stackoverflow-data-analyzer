@@ -202,5 +202,37 @@ public class QuestionServiceImpl implements QuestionService {
         }
     }
 
+    @Override
+    public MistakeResponse getExceptionFrequency(String exceptionName) {
+        // Normalize the exception name (so we can compare case-insensitively)
+        String normalizedExceptionName = exceptionName.trim();
+        Map<String, Integer> exceptionCountMap = analyzeErrors();
+
+        // Check if the exception exists in the map
+        Integer frequency = exceptionCountMap.getOrDefault(normalizedExceptionName, 0);
+
+        return new MistakeResponse(normalizedExceptionName, frequency);
+    }
+
+    private Map<String, Integer> analyzeErrors() {
+        List<Question> questions = questionRepository.findAll();
+        Map<String, Integer> exceptionCountMap = new HashMap<>();
+
+        // Compile the regex pattern with case-insensitivity
+        Pattern pattern = Pattern.compile(EXCEPTION_PATTERN, Pattern.CASE_INSENSITIVE);
+
+        // Analyze questions and their answers for exception mentions
+        for (Question question : questions) {
+            // Analyze the question title for exception mentions
+            matchExceptionInText(question.getTitle(), pattern, exceptionCountMap);
+
+            // Analyze the question body for exception mentions
+            matchExceptionInText(question.getBody(), pattern, exceptionCountMap);
+        }
+
+        return exceptionCountMap;
+    }
+
+
 
 }
