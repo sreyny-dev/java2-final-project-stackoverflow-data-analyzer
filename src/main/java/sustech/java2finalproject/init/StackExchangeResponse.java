@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -27,6 +28,8 @@ public class StackExchangeResponse {
 
         // List of tags associated with the question
         private List<String> tags;
+
+        private List<Answer> answers;
 
         // Various metadata related to the question
         @JsonProperty("is_answered")
@@ -85,5 +88,39 @@ public class StackExchangeResponse {
 
         private String link;
     }
+
+    @Getter
+    @Setter
+    public static class Answer {
+
+        @JsonProperty("is_accepted")
+        private Boolean isAccepted;
+        private Integer score;
+        @JsonProperty("creation_date")
+        private LocalDateTime createdDate;
+        @JsonProperty("answer_id")
+        private Long answerId;
+        @JsonProperty("question_id")
+        private Long questionStackId;
+
+        @JsonProperty("reputation")
+        private Long ownerReputation;
+    }
+
+    @Getter
+    @Setter
+    public static class AnswerOwner {
+
+        @JsonProperty("account_id")
+        private Long accountId;
+
+        private Long reputation;
+
+        @JsonProperty("user_id")
+        private String userId;
+    }
+
+
+
 }
 

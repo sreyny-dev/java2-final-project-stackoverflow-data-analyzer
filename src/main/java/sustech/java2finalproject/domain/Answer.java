@@ -21,6 +21,8 @@ public class Answer {
     private Long answerId;
     private Long questionStackId;
 
+    private Long accountId;
+    private Long userId;
     private Long ownerReputation;
 
 

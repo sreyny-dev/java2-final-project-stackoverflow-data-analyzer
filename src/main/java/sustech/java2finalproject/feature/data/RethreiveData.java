@@ -58,7 +58,7 @@ public class RethreiveData {
                 Owner owner = saveOwner(item.getOwner());
                 Question question = saveQuestion(item, owner);
                 saveTags(item.getTags(), question);
-                fetchAndSaveAnswers(question);
+                saveAnswer(item.getAnswers(), item);
             } catch (Exception e) {
                 logger.error("Error processing question with ID: " + item.getQuestionId(), e);
             }
@@ -66,6 +66,8 @@ public class RethreiveData {
 
         logger.info("Data initialization completed.");
     }
+
+
 
     private Owner saveOwner(StackExchangeResponse.Owner apiOwner) {
         // Check if owner exists, if not, save it
@@ -118,6 +120,29 @@ public class RethreiveData {
         return questionRepository.save(question);
     }
 
+    private void saveAnswer(List<StackExchangeResponse.Answer> answers, StackExchangeResponse.QuestionItem question) {
+        for (StackExchangeResponse.Answer apiAnswer : answers) {
+                try {
+                    // Create a new Answer object if it doesn't exist
+                    Answer newAnswer = new Answer();
+                    newAnswer.setAnswerId(apiAnswer.getAnswerId());
+                    newAnswer.setQuestionStackId(question.getQuestionId());
+                    newAnswer.setScore(apiAnswer.getScore());
+                    newAnswer.setIsAccepted(apiAnswer.getIsAccepted());
+                    newAnswer.setCreatedDate(apiAnswer.getCreatedDate());
+                    newAnswer.setOwnerReputation(apiAnswer.getOwnerReputation());
+
+                    // Save the new answer to the database
+                    answerRepository.save(newAnswer);
+                    logger.info("Answer with ID {} saved for Question ID {}", apiAnswer.getAnswerId(), question.getQuestionId());
+                } catch (Exception e) {
+                    logger.error("Error saving answer with ID {} for Question ID {}", apiAnswer.getAnswerId(), question.getQuestionId(), e);
+                }
+
+        }
+    }
+
+
     private void saveTags(List<String> tagNames, Question question) {
         Set<Tag> tags = new HashSet<>();
         for (String tagName : tagNames) {
@@ -163,73 +188,5 @@ public class RethreiveData {
         }
 
         return allQuestions;
-    }
-
-    private void fetchAndSaveAnswers(Question question) {
-        String url = "https://api.stackexchange.com/2.3/questions/" + question.getQuestionStackId() + "/answers?order=desc&sort=activity&site=stackoverflow";
-        int retryCount = 0;
-        int maxRetries = 5;  // Maximum retry attempts
-        long backoffTime = 2000;  // Initial backoff time in milliseconds (2 seconds)
-
-        while (retryCount < maxRetries) {
-            try {
-                // Fetch the response from Stack Exchange API
-                String response = restTemplate.getForObject(url, String.class);
-
-                // Deserialize the response into Java objects
-                StackExchangeAnswersResponse stackExchangeAnswersResponse = objectMapper.readValue(response, StackExchangeAnswersResponse.class);
-
-                // Process each answer in the response
-                for (StackExchangeAnswersResponse.AnswerItem answerItem : stackExchangeAnswersResponse.getItems()) {
-                    // Extract the owner's reputation from the answer response
-                    Long ownerReputation = answerItem.getOwner().getReputation();
-
-                    // Create and populate the Answer object
-                    Answer answer = new Answer();
-                    answer.setAnswerId(answerItem.getAnswerId());
-                    answer.setScore(answerItem.getScore());
-                    answer.setIsAccepted(answerItem.getIsAccepted());
-                    answer.setCreatedDate(convertToLocalDateTime(answerItem.getCreationDate()));
-                    answer.setQuestionStackId(answerItem.getQuestionStackId());
-                    answer.setQuestion(question);
-                    answer.setOwnerReputation(ownerReputation);  // Set the reputation directly
-
-                    // Save the answer to the repository
-                    answerRepository.save(answer);
-                }
-
-                // If the request is successful, exit the loop
-                return;
-            } catch (HttpClientErrorException e) {
-                if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                    // Handle the 429 Too Many Requests error
-                    logger.warn("Too many requests, retrying... (Attempt " + (retryCount + 1) + ")");
-                    retryCount++;
-
-                    // Wait before retrying with exponential backoff
-                    try {
-                        Thread.sleep(backoffTime);
-                        backoffTime *= 2;  // Exponential backoff: double the wait time after each retry
-                    } catch (InterruptedException ex) {
-                        // Handle interruption during sleep
-                        Thread.currentThread().interrupt();
-                        break;  // Exit the loop if interrupted
-                    }
-                } else {
-                    // Handle other errors (e.g., 4xx, 5xx)
-                    logger.error("Error fetching answers for question ID: " + question.getQuestionStackId(), e);
-                    break;  // Exit the loop for other error types
-                }
-            } catch (Exception e) {
-                // Handle any other exceptions that may occur
-                logger.error("Unexpected error fetching answers for question ID: " + question.getQuestionStackId(), e);
-                break;
-            }
-        }
-
-        // If max retries are reached, log an error
-        if (retryCount >= maxRetries) {
-            logger.error("Max retry attempts reached for question ID: " + question.getQuestionStackId());
-        }
     }
 }
