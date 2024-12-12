@@ -15,6 +15,8 @@ import sustech.java2finalproject.feature.question.repository.OwnerRepository;
 import sustech.java2finalproject.feature.question.repository.QuestionRepository;
 import sustech.java2finalproject.feature.question.repository.TagRepository;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -230,7 +232,8 @@ public class QuestionServiceImpl implements QuestionService {
                 .map(answer -> new AnswerResponse(
                         answer.getAnswerId(),
                         Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
-                        answer.getAccountId()
+                        answer.getAccountId(),
+                        answer.getQuestionStackId()
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
                 .collect(Collectors.toList());
@@ -252,11 +255,111 @@ public class QuestionServiceImpl implements QuestionService {
                 .map(answer -> new AnswerResponse(
                         answer.getAnswerId(),
                         Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
-                        answer.getAccountId()
+                        answer.getAccountId(),
+                        answer.getQuestionStackId()
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
                 .limit(topN)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<AnswerResponse> timeElapsed(Integer topN) {
+
+        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
+
+        return answers.stream()
+                .map(answer -> new AnswerResponse(
+                        answer.getAnswerId(),
+                        calculateElapseScore(answer),
+                        answer.getAccountId(),
+                        answer.getQuestionStackId()
+                ))
+                .sorted((a1, a2) -> Double.compare(a1.qualityScore(), a2.qualityScore()))  // Sort by elapsed score
+                .limit(topN)
+                .collect(Collectors.toList());
+    }
+
+    private Double calculateElapseScore(Answer answer) {
+
+        LocalDateTime questionCreationDate = answer.getQuestion().getCreationDate();
+        LocalDateTime answerCreationDate = answer.getCreatedDate();
+
+        if (questionCreationDate != null && answerCreationDate != null) {
+            // Calculate the duration between question creation and answer creation
+            Duration duration = Duration.between(questionCreationDate, answerCreationDate);
+
+            // Convert the elapsed time to minutes
+            double elapsedTimeInMinutes = (double) duration.toSeconds();
+
+            // Handle cases where the elapsed time is 0.0 or too small
+//            if (elapsedTimeInMinutes == 0.0) {
+//                return Double.MAX_VALUE; // Treat zero elapsed time as low quality
+//            }
+
+            // Cap the elapsed time to a reasonable threshold to prevent overflow or unrealistic values
+            double MAX_ALLOWED_TIME = 1_000_000.0; // Define a reasonable threshold (e.g., 1 million minutes)
+
+            // If the elapsed time exceeds the threshold, cap it
+            if (elapsedTimeInMinutes > MAX_ALLOWED_TIME) {
+                return Double.MAX_VALUE; // Return Double.MAX_VALUE for excessively long times
+            }
+
+            return elapsedTimeInMinutes; // Return actual elapsed time if it's within reasonable range
+        }
+
+        // If either the question or answer creation date is null, return Double.MAX_VALUE to push it to the bottom of the list
+        return Double.MAX_VALUE;
+    }
+
+
+
+
+
+    @Override
+    public List<AnswerResponse> userReputation(Integer topN) {
+        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
+
+        return answers.stream()
+                .map(answer -> new AnswerResponse(
+                        answer.getAnswerId(),
+                        calculateReputationScore(answer),
+                        answer.getAccountId(),
+                        answer.getQuestionStackId()
+                ))
+                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))   // Sort by elapsed score
+                .limit(topN)
+                .collect(Collectors.toList());
+    }
+
+    private Double calculateReputationScore(Answer answer) {
+        Long userReputationScore = answer.getOwnerReputation();
+
+        // Convert Long to Double
+        return userReputationScore != null ? userReputationScore.doubleValue() : 0.0;
+    }
+
+    @Override
+    public List<AnswerResponse> answerScore(Integer topN) {
+        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
+
+        return answers.stream()
+                .map(answer -> new AnswerResponse(
+                        answer.getAnswerId(),
+                        calculateAnswerScore(answer),
+                        answer.getAccountId(),
+                        answer.getQuestionStackId()
+                ))
+                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))    // Sort by elapsed score
+                .limit(topN)
+                .collect(Collectors.toList());
+    }
+
+    private Double calculateAnswerScore(Answer answer) {
+        Integer answerScore = answer.getScore();
+
+        // Convert Long to Double
+        return answerScore != null ? answerScore.doubleValue() : 0.0;
     }
 
 

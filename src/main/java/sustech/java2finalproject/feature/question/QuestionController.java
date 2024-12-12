@@ -53,14 +53,29 @@ public class QuestionController {
 
     @GetMapping("/answer-quality/{questionStackId}")
     @CrossOrigin
-    public List<AnswerResponse> getExceptionFrequency(@PathVariable Long questionStackId){
+    public List<AnswerResponse> answerQuality(@PathVariable Long questionStackId){
         return questionService.answerQuality(questionStackId);
     }
 
     @GetMapping("/overall-answer-quality/{topN}")
     @CrossOrigin
-    public List<AnswerResponse> getExceptionFrequency(@PathVariable Integer topN){
+    public List<AnswerResponse> overAnswerQuality(@PathVariable Integer topN){
         return questionService.overallAnswerQuality(topN);
+    }
+    @GetMapping("/elapse-answer-quality/{topN}")
+    @CrossOrigin
+    public List<AnswerResponse> answerQualityDurationBase(@PathVariable Integer topN){
+        return questionService.timeElapsed(topN);
+    }
+    @GetMapping("/reputation-answer-quality/{topN}")
+    @CrossOrigin
+    public List<AnswerResponse> answerQualityUserReputationBase(@PathVariable Integer topN){
+        return questionService.userReputation(topN);
+    }
+    @GetMapping("/score-answer-quality/{topN}")
+    @CrossOrigin
+    public List<AnswerResponse> answerQualityScoreBase(@PathVariable Integer topN){
+        return questionService.answerScore(topN);
     }
 
 

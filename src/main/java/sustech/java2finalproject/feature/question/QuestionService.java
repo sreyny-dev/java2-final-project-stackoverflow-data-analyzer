@@ -22,4 +22,7 @@ public interface QuestionService {
     //Answer Quality of a specific question
     List<AnswerResponse> answerQuality(Long questionStackId);
     List<AnswerResponse> overallAnswerQuality(Integer topN);
+    List<AnswerResponse> timeElapsed(Integer topN);
+    List<AnswerResponse> userReputation(Integer topN);
+    List<AnswerResponse> answerScore(Integer topN);
 }
