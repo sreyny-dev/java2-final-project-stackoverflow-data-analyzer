@@ -233,7 +233,11 @@ public class QuestionServiceImpl implements QuestionService {
                         answer.getAnswerId(),
                         Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
                         answer.getAccountId(),
-                        answer.getQuestionStackId()
+                        answer.getQuestionStackId(),
+                        calculateElapseScore(answer),
+                        answer.getOwnerReputation(),
+                        answer.getScore(),
+                        answer.getIsAccepted()
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
                 .collect(Collectors.toList());
@@ -256,7 +260,12 @@ public class QuestionServiceImpl implements QuestionService {
                         answer.getAnswerId(),
                         Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
                         answer.getAccountId(),
-                        answer.getQuestionStackId()
+                        answer.getQuestionStackId(),
+                        calculateElapseScore(answer),
+                        answer.getOwnerReputation(),
+                        answer.getScore(),
+                        answer.getIsAccepted()
+
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
                 .limit(topN)
@@ -273,7 +282,11 @@ public class QuestionServiceImpl implements QuestionService {
                         answer.getAnswerId(),
                         calculateElapseScore(answer),
                         answer.getAccountId(),
-                        answer.getQuestionStackId()
+                        answer.getQuestionStackId(),
+                        calculateElapseScore(answer),
+                        answer.getOwnerReputation(),
+                        answer.getScore(),
+                        answer.getIsAccepted()
                 ))
                 .sorted((a1, a2) -> Double.compare(a1.qualityScore(), a2.qualityScore()))  // Sort by elapsed score
                 .limit(topN)
@@ -313,9 +326,6 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
 
-
-
-
     @Override
     public List<AnswerResponse> userReputation(Integer topN) {
         List<Answer> answers = answerRepository.findByIsAcceptedTrue();
@@ -325,7 +335,11 @@ public class QuestionServiceImpl implements QuestionService {
                         answer.getAnswerId(),
                         calculateReputationScore(answer),
                         answer.getAccountId(),
-                        answer.getQuestionStackId()
+                        answer.getQuestionStackId(),
+                        calculateElapseScore(answer),
+                        answer.getOwnerReputation(),
+                        answer.getScore(),
+                        answer.getIsAccepted()
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))   // Sort by elapsed score
                 .limit(topN)
@@ -341,14 +355,18 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public List<AnswerResponse> answerScore(Integer topN) {
-        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
+        List<Answer> answers = answerRepository.findAll();
 
         return answers.stream()
                 .map(answer -> new AnswerResponse(
                         answer.getAnswerId(),
                         calculateAnswerScore(answer),
                         answer.getAccountId(),
-                        answer.getQuestionStackId()
+                        answer.getQuestionStackId(),
+                        calculateElapseScore(answer),
+                        answer.getOwnerReputation(),
+                        answer.getScore(),
+                        answer.getIsAccepted()
                 ))
                 .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))    // Sort by elapsed score
                 .limit(topN)
