@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -29,6 +27,7 @@ public class StackExchangeResponse {
         // List of tags associated with the question
         private List<String> tags;
 
+        @JsonProperty("answers")
         private List<Answer> answers;
 
         // Various metadata related to the question
@@ -64,6 +63,7 @@ public class StackExchangeResponse {
     // Nested class to represent the owner of a question
     @Getter
     @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Owner {
 
         @JsonProperty("account_id")
@@ -77,27 +77,21 @@ public class StackExchangeResponse {
         @JsonProperty("user_type")
         private String userType;
 
-        @JsonProperty("accept_rate")
-        private Integer acceptRate;
-
-        @JsonProperty("profile_image")
-        private String profileImage;
-
         @JsonProperty("display_name")
         private String displayName;
 
-        private String link;
     }
 
     @Getter
     @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class Answer {
 
         @JsonProperty("is_accepted")
         private Boolean isAccepted;
         private Integer score;
         @JsonProperty("creation_date")
-        private LocalDateTime createdDate;
+        private Long createdDate;
         @JsonProperty("answer_id")
         private Long answerId;
         @JsonProperty("question_id")
@@ -105,10 +99,15 @@ public class StackExchangeResponse {
 
         @JsonProperty("reputation")
         private Long ownerReputation;
+
+        @JsonProperty("owner")
+        private AnswerOwner answerOwner;
     }
 
     @Getter
     @Setter
+    @JsonIgnoreProperties(ignoreUnknown = true)
+
     public static class AnswerOwner {
 
         @JsonProperty("account_id")

@@ -2,9 +2,11 @@ package sustech.java2finalproject.feature.question;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import sustech.java2finalproject.feature.question.dto.AnswerResponse;
 import sustech.java2finalproject.feature.question.dto.MistakeResponse;
 import sustech.java2finalproject.feature.question.dto.TopEngagementResponse;
 import sustech.java2finalproject.feature.question.dto.TopNResponse;
+import sustech.java2finalproject.init.StackExchangeResponse;
 
 import java.util.List;
 
@@ -48,6 +50,19 @@ public class QuestionController {
     public MistakeResponse getExceptionFrequency(@PathVariable String mistake){
         return questionService.getExceptionFrequency(mistake);
     }
+
+    @GetMapping("/answer-quality/{questionStackId}")
+    @CrossOrigin
+    public List<AnswerResponse> getExceptionFrequency(@PathVariable Long questionStackId){
+        return questionService.answerQuality(questionStackId);
+    }
+
+    @GetMapping("/overall-answer-quality/{topN}")
+    @CrossOrigin
+    public List<AnswerResponse> getExceptionFrequency(@PathVariable Integer topN){
+        return questionService.overallAnswerQuality(topN);
+    }
+
 
 
 }
