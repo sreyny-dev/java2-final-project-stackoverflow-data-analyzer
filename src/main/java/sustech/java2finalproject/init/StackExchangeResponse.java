@@ -100,6 +100,8 @@ public class StackExchangeResponse {
         @JsonProperty("reputation")
         private Long ownerReputation;
 
+        private String body;
+
         @JsonProperty("owner")
         private AnswerOwner answerOwner;
     }

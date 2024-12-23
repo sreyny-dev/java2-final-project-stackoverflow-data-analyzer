@@ -3,6 +3,8 @@ package sustech.java2finalproject.feature.data;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.AllArgsConstructor;
 
+
+import org.jsoup.Jsoup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -135,6 +137,17 @@ public class RethreiveData {
                 // Log the response for the answer
                 logger.info("Processing Answer ID {} for Question ID {}", apiAnswer.getAnswerId(), questionItem.getQuestionId());
 
+                // Check if the answer already exists in the database
+                Optional<Answer> existingAnswerOpt = answerRepository.findByAnswerId(apiAnswer.getAnswerId());
+                if (existingAnswerOpt.isPresent()) {
+                    logger.info("Answer with ID {} already exists in the database. Skipping...", apiAnswer.getAnswerId());
+                    continue; // Skip saving this answer if it already exists
+                }
+
+                // Extract the body and calculate its plain-text length
+                String body = apiAnswer.getBody(); // HTML body content
+                String plainTextBody = Jsoup.parse(body).text(); // Convert HTML to plain text using Jsoup
+                Long bodyLength = Long.valueOf(plainTextBody.length());
 
                 // Create a new Answer object if it doesn't exist
                 Answer newAnswer = new Answer();
@@ -143,6 +156,7 @@ public class RethreiveData {
                 newAnswer.setScore(apiAnswer.getScore());
                 newAnswer.setIsAccepted(apiAnswer.getIsAccepted());
                 newAnswer.setCreatedDate(convertToLocalDateTime(apiAnswer.getCreatedDate()));
+                newAnswer.setAnswerLength(bodyLength);
 
                 // Extract owner details from the API response
                 if (apiAnswer.getAnswerOwner() != null) {
@@ -195,7 +209,11 @@ public class RethreiveData {
         int totalPages = (totalQuestions + 99) / 100; // Calculate pages required
 
         // Correct base URL without the 'page=1' parameter
-        String baseUrl = "https://api.stackexchange.com/2.3/questions?pagesize=100&order=desc&sort=activity&tagged=java&site=stackoverflow&filter=!4)7wd.G6sgmI5NUcy";
+//        String baseUrl = "https://api.stackexchange.com/2.3/questions?pagesize=100&order=desc&sort=activity&tagged=java&site=stackoverflow&filter=!4)7wd.G6sgmI5NUcy";
+
+        String baseUrl = "https://api.stackexchange.com/2.3/questions?page=1&pagesize=100&order=desc&sort=activity&tagged=java&site=stackoverflow&filter=!6WPIomnMNcVD9";
+
+
 
         for (int page = 1; page <= totalPages; page++) {
             // Append the correct page number to the URL

@@ -24,6 +24,7 @@ public class Answer {
     private Long accountId;
     private Long userId;
     private Long ownerReputation;
+    private Long answerLength;
 
 
     @ManyToOne

@@ -14,21 +14,21 @@ services:
 
   stack-db:
     image: postgres:16.3-bullseye
-    container_name: stack-db
+    container_name: stack-exchange-db
     ports:
-      - 1234:5432
+      - 1818:5432
     environment:
       POSTGRES_PASSWORD: java@2024
       POSTGRES_USER: java
-      POSTGRES_DB: java_project
+      POSTGRES_DB: stack_exchange
     volumes:
-      - java_final:/var/lib/postgresql/data
+      - stack_exchange:/var/lib/postgresql/data
     networks:
-      - java_project
+      - java_pro
 
 volumes:
-  java_final:
+  stack_exchange:
 
 networks:
-  java_project:
+  java_pro:
 

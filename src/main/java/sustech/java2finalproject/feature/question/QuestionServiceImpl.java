@@ -15,8 +15,8 @@ import sustech.java2finalproject.feature.question.repository.OwnerRepository;
 import sustech.java2finalproject.feature.question.repository.QuestionRepository;
 import sustech.java2finalproject.feature.question.repository.TagRepository;
 
-import java.time.Duration;
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -66,57 +66,100 @@ public class QuestionServiceImpl implements QuestionService {
 
     @Override
     public List<TopEngagementResponse> getTopEngagementTag(int topN) {
-
-        List<Question> allQuestions = questionRepository.findAll();
-        Map<Tag, Long> tagEngagementMap = allQuestions.stream()
-                .flatMap(question -> question.getTags().stream())
-                .collect(Collectors.toMap(
-                        tag -> tag,
-                        tag -> allQuestions.stream()
-                                .filter(q->q.getTags().contains(tag))
-                                .mapToLong(q->q.getScore() + q.getViewCount())
-                                .sum(),
-                        Long::sum
-                ));
-
-        return tagEngagementMap.entrySet().stream()
-                .map(entry-> new TopEngagementResponse(entry.getKey().getName(), entry.getValue()))
-                .sorted((entry1, entry2)-> entry2.totalEngagement().compareTo(entry1.totalEngagement()))
-                .skip(1)
-                .limit(topN)
-                .collect(Collectors.toList());
+        return calculateTopEngagementTag(ownerRepository.findAll(), topN);
     }
 
     @Override
     public List<TopEngagementResponse> getTopEngagementTagByTopUser(int topN, int reputation) {
-
         List<Owner> topOwners = ownerRepository.findTopOwnersByReputation(reputation);
+        return calculateTopEngagementTag(topOwners, topN);
+    }
 
-        // Get all questions from high-reputation users
-        List<Question> highReputationQuestions = topOwners.stream()
+    private List<TopEngagementResponse> calculateTopEngagementTag(List<Owner> owners, int topN) {
+        // Get all questions from owners
+        List<Question> questions = owners.stream()
                 .flatMap(owner -> owner.getQuestions().stream())
                 .collect(Collectors.toList());
 
-        // Create a map of tags and their total engagement (score + viewCount)
-        Map<Tag, Long> tagEngagementMap = highReputationQuestions.stream()
-                .flatMap(question -> question.getTags().stream())
+        // Define weights for each component of engagement
+        double scoreWeight = 0.3;
+        double reputationWeight = 0.05;
+        double viewCountWeight = 0.3;
+        double answerCountWeight = 0.35;
+
+        // Calculate min and max for normalization
+        double minScore = questions.stream().mapToDouble(q -> q.getScore() != null ? q.getScore() : 0).min().orElse(0);
+        double maxScore = questions.stream().mapToDouble(q -> q.getScore() != null ? q.getScore() : 0).max().orElse(1);
+        double minView = questions.stream().mapToDouble(q -> q.getViewCount() != null ? q.getViewCount() : 0).min().orElse(0);
+        double maxView = questions.stream().mapToDouble(q -> q.getViewCount() != null ? q.getViewCount() : 0).max().orElse(1);
+        double minAnswer = questions.stream().mapToDouble(q -> q.getAnswerCount() != null ? q.getAnswerCount() : 0).min().orElse(0);
+        double maxAnswer = questions.stream().mapToDouble(q -> q.getAnswerCount() != null ? q.getAnswerCount() : 0).max().orElse(1);
+        double minReputation = owners.stream().mapToDouble(o -> o.getReputation() != null ? o.getReputation() : 0).min().orElse(0);
+        double maxReputation = owners.stream().mapToDouble(o -> o.getReputation() != null ? o.getReputation() : 0).max().orElse(1);
+
+        // Create a map of tags and their total engagement and question count
+        Map<Tag, double[]> tagEngagementMap = new HashMap<>();
+
+        for (Question question : questions) {
+            for (Tag tag : question.getTags()) {
+                // Normalize each component
+                double normalizedScore = normalize(question.getScore(), minScore, maxScore);
+                double normalizedViewCount = normalize(question.getViewCount(), minView, maxView);
+                double normalizedAnswerCount = normalize(question.getAnswerCount(), minAnswer, maxAnswer);
+                double normalizedReputation = normalize(question.getOwner().getReputation(), minReputation, maxReputation);
+
+                // Calculate engagement for the current question and tag
+                double engagement = (
+                        normalizedScore * scoreWeight +
+                                normalizedViewCount * viewCountWeight +
+                                normalizedAnswerCount * answerCountWeight +
+                                normalizedReputation * reputationWeight
+                );
+
+                // Update the map with the total engagement and question count for this tag
+                tagEngagementMap.compute(tag, (t, values) -> {
+                    if (values == null) {
+                        return new double[]{engagement, 1}; // New tag with the first question
+                    } else {
+                        values[0] += engagement; // Add to total engagement
+                        values[1] += 1;           // Increment question count
+                        return values;
+                    }
+                });
+            }
+        }
+
+        // Calculate average engagement for each tag and round to 6 decimal places
+        Map<Tag, Double> averageEngagementByTag = tagEngagementMap.entrySet()
+                .stream()
                 .collect(Collectors.toMap(
-                        tag -> tag,
-                        tag -> highReputationQuestions.stream()
-                                .filter(q -> q.getTags().contains(tag))
-                                .mapToLong(q -> q.getScore() + q.getViewCount())
-                                .sum(),
-                        Long::sum
+                        Map.Entry::getKey,
+                        entry -> round(entry.getValue()[0] / entry.getValue()[1], 6)
                 ));
 
-        // Return the top N tags sorted by total engagement, skipping 1 to adjust for the 1-based index of 'topN'
-        return tagEngagementMap.entrySet().stream()
-                .map(entry -> new TopEngagementResponse(entry.getKey().getName(), entry.getValue()))
-                .sorted((entry1, entry2) -> entry2.totalEngagement().compareTo(entry1.totalEngagement()))
-                .skip(1)
+        // Sort tags by average engagement in descending order and limit to top N
+        return averageEngagementByTag.entrySet()
+                .stream()
+                .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
                 .limit(topN)
+                .map(entry -> new TopEngagementResponse(entry.getKey().getName(), entry.getValue()))
                 .collect(Collectors.toList());
     }
+
+    // Helper method to normalize values
+    private double normalize(Long value, double min, double max) {
+        if (value == null) return 0;
+        return (value - min) / (max - min);
+    }
+
+    // Helper method to round values to a specified number of decimal places
+    private double round(double value, int places) {
+        if (places < 0) throw new IllegalArgumentException();
+        BigDecimal bd = BigDecimal.valueOf(value);
+        bd = bd.setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
+    }
+
 
     // List of common Java exceptions
     private static final String[] COMMON_EXCEPTIONS = {
@@ -217,35 +260,7 @@ public class QuestionServiceImpl implements QuestionService {
     }
 
     @Override
-    public List<AnswerResponse> answerQuality(Long questionStackId) {
-
-        List<Answer> answers = answerRepository.findByQuestionStackId(questionStackId);
-
-        // Define weights for each criterion
-        double isAcceptedWeight = 0.4;
-        double elapsedTimeWeight = 0.2;
-        double reputationWeight = 0.2;
-        double scoreWeight = 0.2;
-
-        // Map Answer to AnswerResponse and return
-        return answers.stream()
-                .map(answer -> new AnswerResponse(
-                        answer.getAnswerId(),
-                        Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
-                        answer.getAccountId(),
-                        answer.getQuestionStackId(),
-                        calculateElapseScore(answer),
-                        answer.getOwnerReputation(),
-                        answer.getScore(),
-                        answer.getIsAccepted()
-                ))
-                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public List<AnswerResponse> overallAnswerQuality(Integer topN) {
-
         List<Answer> answers = answerRepository.findAll();
 
         // Define weights for each criterion
@@ -254,130 +269,34 @@ public class QuestionServiceImpl implements QuestionService {
         double reputationWeight = 0.2;
         double scoreWeight = 0.2;
 
-        // Map Answer to AnswerResponse and return
-        return answers.stream()
+        // Process answers and map to responses with quality scores
+        List<AnswerResponse> processedAnswers = answers.stream()
                 .map(answer -> new AnswerResponse(
-                        answer.getAnswerId(),
-                        Double.parseDouble(String.format("%.2f", calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight))),
-                        answer.getAccountId(),
-                        answer.getQuestionStackId(),
-                        calculateElapseScore(answer),
+                        calculateQualityScore(answer, isAcceptedWeight, elapsedTimeWeight, reputationWeight, scoreWeight),
+                        calculateElapseTime(answer),
                         answer.getOwnerReputation(),
                         answer.getScore(),
-                        answer.getIsAccepted()
-
+                        answer.getIsAccepted(),  // Pass isAccepted from Answer to AnswerResponse
+                        answer.getAnswerLength(),
+                        answer.getAnswerId()
                 ))
-                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))  // Sort by qualityScore descending
+                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore())) // Sort by qualityScore descending
                 .limit(topN)
                 .collect(Collectors.toList());
+
+        // Return the processed answers
+        return processedAnswers;
     }
 
-    @Override
-    public List<AnswerResponse> timeElapsed(Integer topN) {
 
-        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
-
-        return answers.stream()
-                .map(answer -> new AnswerResponse(
-                        answer.getAnswerId(),
-                        calculateElapseScore(answer),
-                        answer.getAccountId(),
-                        answer.getQuestionStackId(),
-                        calculateElapseScore(answer),
-                        answer.getOwnerReputation(),
-                        answer.getScore(),
-                        answer.getIsAccepted()
-                ))
-                .sorted((a1, a2) -> Double.compare(a1.qualityScore(), a2.qualityScore()))  // Sort by elapsed score
-                .limit(topN)
-                .collect(Collectors.toList());
-    }
-
-    private Double calculateElapseScore(Answer answer) {
-
-        LocalDateTime questionCreationDate = answer.getQuestion().getCreationDate();
-        LocalDateTime answerCreationDate = answer.getCreatedDate();
-
-        if (questionCreationDate != null && answerCreationDate != null) {
-            // Calculate the duration between question creation and answer creation
-            Duration duration = Duration.between(questionCreationDate, answerCreationDate);
-
-            // Convert the elapsed time to minutes
-            double elapsedTimeInMinutes = (double) duration.toSeconds();
-
-            // Handle cases where the elapsed time is 0.0 or too small
-//            if (elapsedTimeInMinutes == 0.0) {
-//                return Double.MAX_VALUE; // Treat zero elapsed time as low quality
-//            }
-
-            // Cap the elapsed time to a reasonable threshold to prevent overflow or unrealistic values
-            double MAX_ALLOWED_TIME = 1_000_000.0; // Define a reasonable threshold (e.g., 1 million minutes)
-
-            // If the elapsed time exceeds the threshold, cap it
-            if (elapsedTimeInMinutes > MAX_ALLOWED_TIME) {
-                return Double.MAX_VALUE; // Return Double.MAX_VALUE for excessively long times
-            }
-
-            return elapsedTimeInMinutes; // Return actual elapsed time if it's within reasonable range
+    private double calculateElapseTime(Answer answer) {
+        if (answer.getCreatedDate() == null || answer.getQuestion() == null) {
+            return Double.MAX_VALUE; // Use a large value for missing data
         }
-
-        // If either the question or answer creation date is null, return Double.MAX_VALUE to push it to the bottom of the list
-        return Double.MAX_VALUE;
-    }
-
-
-    @Override
-    public List<AnswerResponse> userReputation(Integer topN) {
-        List<Answer> answers = answerRepository.findByIsAcceptedTrue();
-
-        return answers.stream()
-                .map(answer -> new AnswerResponse(
-                        answer.getAnswerId(),
-                        calculateReputationScore(answer),
-                        answer.getAccountId(),
-                        answer.getQuestionStackId(),
-                        calculateElapseScore(answer),
-                        answer.getOwnerReputation(),
-                        answer.getScore(),
-                        answer.getIsAccepted()
-                ))
-                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))   // Sort by elapsed score
-                .limit(topN)
-                .collect(Collectors.toList());
-    }
-
-    private Double calculateReputationScore(Answer answer) {
-        Long userReputationScore = answer.getOwnerReputation();
-
-        // Convert Long to Double
-        return userReputationScore != null ? userReputationScore.doubleValue() : 0.0;
-    }
-
-    @Override
-    public List<AnswerResponse> answerScore(Integer topN) {
-        List<Answer> answers = answerRepository.findAll();
-
-        return answers.stream()
-                .map(answer -> new AnswerResponse(
-                        answer.getAnswerId(),
-                        calculateAnswerScore(answer),
-                        answer.getAccountId(),
-                        answer.getQuestionStackId(),
-                        calculateElapseScore(answer),
-                        answer.getOwnerReputation(),
-                        answer.getScore(),
-                        answer.getIsAccepted()
-                ))
-                .sorted((a1, a2) -> Double.compare(a2.qualityScore(), a1.qualityScore()))    // Sort by elapsed score
-                .limit(topN)
-                .collect(Collectors.toList());
-    }
-
-    private Double calculateAnswerScore(Answer answer) {
-        Integer answerScore = answer.getScore();
-
-        // Convert Long to Double
-        return answerScore != null ? answerScore.doubleValue() : 0.0;
+        long elapsedTime = Math.abs(
+                java.time.Duration.between(answer.getQuestion().getCreationDate(), answer.getCreatedDate()).toHours()
+        );
+        return elapsedTime > 0 ? elapsedTime : 1.0; // Avoid division by zero
     }
 
 
@@ -396,10 +315,15 @@ public class QuestionServiceImpl implements QuestionService {
         double score = answer.getScore() != null ? answer.getScore() : 0;
 
         // Combine scores using weights
-        return (isAcceptedWeight * acceptedScore) +
+        double qualityScore = (isAcceptedWeight * acceptedScore) +
                 (elapsedTimeWeight * elapsedTimeScore) +
                 (reputationWeight * reputationScore) +
                 (scoreWeight * score);
+
+        // Round to 2 decimal places using BigDecimal
+        return BigDecimal.valueOf(qualityScore)
+                .setScale(2, RoundingMode.HALF_UP)
+                .doubleValue();
     }
 
 

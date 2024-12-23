@@ -1,6 +1,5 @@
 package sustech.java2finalproject.feature.question;
 
-import sustech.java2finalproject.domain.Answer;
 import sustech.java2finalproject.feature.question.dto.AnswerResponse;
 import sustech.java2finalproject.feature.question.dto.MistakeResponse;
 import sustech.java2finalproject.feature.question.dto.TopEngagementResponse;
@@ -20,9 +19,6 @@ public interface QuestionService {
     MistakeResponse getExceptionFrequency(String mistake);
 
     //Answer Quality of a specific question
-    List<AnswerResponse> answerQuality(Long questionStackId);
     List<AnswerResponse> overallAnswerQuality(Integer topN);
-    List<AnswerResponse> timeElapsed(Integer topN);
-    List<AnswerResponse> userReputation(Integer topN);
-    List<AnswerResponse> answerScore(Integer topN);
+
 }
