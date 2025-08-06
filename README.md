@@ -58,7 +58,7 @@ Develop a **REST API** to answer the following questions in **JSON format**:
 ## How to Run the Code
 1. Use `docker compose up -d --build` to start the services.
 2. Run the project.
-3. Check the **Dockerfile configuration** for database connection details.
+3. Check the **docker-compose.yaml file configuration** for database connection details.
 
 ---
 
